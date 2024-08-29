@@ -14,7 +14,11 @@ ADQuery -GPOs
 ```
 ADQuery -GPOName "Computer - LAPS"
 ```
-![image](https://github.com/user-attachments/assets/e04990ee-f3e7-4e8a-86af-fc9ac215fc2d)
+![image](https://github.com/user-attachments/assets/a0a818a6-aed4-475b-a09c-12d7ae9aef3e)
+
+![image](https://github.com/user-attachments/assets/c64cd35d-e902-4238-9607-f5b0cdda6fb9)
+
+
 
 ## Enumerate for OUs
 ```
@@ -26,7 +30,10 @@ ADQuery -OUName "AllComputers"
 ```
 ADQuery -OUDistName "OU=AllComputers,DC=ferrari,DC=local"
 ```
-![image](https://github.com/user-attachments/assets/eb7b463b-8c0c-4963-be7b-9585773e4234)
+![image](https://github.com/user-attachments/assets/7676b319-626e-450d-8342-5786eb4822f4)
+
+![image](https://github.com/user-attachments/assets/486b3c74-9f86-49e4-87b9-c5758a93cb99)
+
 
 ## Enumerate for Groups
 ```
@@ -35,7 +42,9 @@ ADQuery -Groups
 ```
 ADQuery -GroupName "Domain Admins"
 ```
-![image](https://github.com/user-attachments/assets/123658c5-e221-43aa-8388-c42b95995bb9)
+![image](https://github.com/user-attachments/assets/a9230dd1-7d1e-41e1-9c31-9bc711f7ccc2)
+
+![image](https://github.com/user-attachments/assets/692a4668-1a3f-4e62-87bc-b3eb7eb25966)
 
 
 ## Enumerate for a User Object
