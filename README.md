@@ -23,6 +23,9 @@ ADQuery -OUs
 ```
 ADQuery -OUName "AllComputers"
 ```
+```
+ADQuery -OUDistName "OU=AllComputers,DC=ferrari,DC=local"
+```
 ![image](https://github.com/user-attachments/assets/eb7b463b-8c0c-4963-be7b-9585773e4234)
 
 ## Enumerate for Groups
