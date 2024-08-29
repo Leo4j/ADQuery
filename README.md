@@ -1,6 +1,6 @@
 # ADQuery
 
-This script is meant to help with enumeration of GPOs, OUs they apply to, principals within those OUs, Groups and Group Membership, and Foreign Security Principals. Single User and Computer objects can be enumerated too
+ADQuery is meant to help with enumeration of GPOs, OUs they apply to, principals within those OUs, Groups and Group Membership, and Foreign Security Principals. Single User and Computer objects can be enumerated too
 
 ## Load in memory
 ```
