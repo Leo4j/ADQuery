@@ -162,7 +162,7 @@ function ADQuery {
 	
 	elseif($OUs){
 		$TempAllDomainOUs = @()
-		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
+		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property name,distinguishedname,description)
 		
 		foreach ($CollectOU in $AllCollectedOUs) {
 
@@ -170,6 +170,7 @@ function ADQuery {
 			$TempAllDomainOUs += [PSCustomObject]@{
 				"OU Name"    = $CollectOU.name
 				"Distinguished Name" = $CollectOU.distinguishedname
+    				"Description" = $CollectOU.description
 			}
 		}
 		
