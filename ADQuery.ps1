@@ -16,6 +16,7 @@ function ADQuery {
 		[string]$ComputerName,
 		[string]$GPOName,
 		[string]$OUName,
+		[string]$OUDistName,
 		[string]$GroupName,
 		[string]$ConvertSID,
 		[switch]$GPOs,
@@ -40,12 +41,10 @@ function ADQuery {
 		$TempDomainGPOs = @()
 		$TotalScrapedOUs = @()
 		$TempAllDomainOUs = @()
+		$TempAllCollDomainOUs = @()
 		$DomainGPOs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect GPOs -Property gpcfilesyspath,displayname)
 		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
-		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname)
-		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname)
-		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property distinguishedName,samaccountname)
-		$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
+		
 		foreach ($DomainGPO in $DomainGPOs) {
 			$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
 			$TargetOUs = @($AllCollectedOUs | Where-Object {$_.gplink -like "*$GPOGuid*"} )
@@ -64,38 +63,21 @@ function ADQuery {
 		}
 		
 		foreach ($CollectOU in $TotalScrapedOUs) {
-				
-			$ouDN = $CollectOU.distinguishedName
-			#$domain = $CollectOU.domain
-			
-			# Filter users within this OU
-			$users = ($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
-
-			# Filter computers within this OU
-			$computers = @($TotalEnabledMachines | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
-			
-			# Filter groups within this OU
-			$collgroups = @($TotalGroups | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)"})
-			
-			# Filter orgunits within this OU
-			$orgunits = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(OU)" })
-			
-			# Filter foreign principals within this OU
-    		$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
-
-			# Combine users and computers
-			$members = @($users + $computers + $collgroups + $orgunits + $collforeign) -join ' - '
-
-			# Create a custom object for each OU with its members
-			$TempAllDomainOUs += [PSCustomObject]@{
-				"Collected OUs"    = $CollectOU.name
-				#Domain  = $domain
-				Members = $members
+			foreach ($DomainGPO in $DomainGPOs) {
+				$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
+				if($CollectOU.gplink -like "*$GPOGuid*"){
+					$TempAllDomainOUs += [PSCustomObject]@{
+						"Collected OUs"    = $CollectOU.name
+						"Distinguished Name" = $CollectOU.distinguishedname
+						#Domain  = $domain
+						"GPO Membership" = $DomainGPO.DisplayName
+					}
+				}
 			}
 		}
 		
 		if($TempAllDomainOUs) {
-			$TempAllDomainOUs | Sort-Object "Collected OUs" | Format-Table -AutoSize -Wrap
+			$TempAllDomainOUs | Sort-Object -Unique "Collected OUs","Distinguished Name" | Format-Table -AutoSize -Wrap
 		}
 	}
 	
@@ -103,12 +85,13 @@ function ADQuery {
 		$TempDomainGPOs = @()
 		$TotalScrapedOUs = @()
 		$TempAllDomainOUs = @()
+		$TempAllCollDomainOUs = @()
 		$DomainGPOs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect GPOs -Property gpcfilesyspath,displayname -LDAP "displayname=$GPOName")
 		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
 		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname)
 		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname)
 		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property distinguishedName,samaccountname)
-		$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
+		$AllForeignSecurityPrincipals = @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
 		foreach ($DomainGPO in $DomainGPOs) {
 			$GPOGuid = ($DomainGPO.gpcfilesyspath -split "}")[-2].split("{")[-1]  # Extracting the GPO's GUID
 			$TargetOUs = @($AllCollectedOUs | Where-Object {$_.gplink -like "*$GPOGuid*"} )
@@ -132,7 +115,7 @@ function ADQuery {
 			#$domain = $CollectOU.domain
 			
 			# Filter users within this OU
-			$users = ($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+			$users = @($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
 
 			# Filter computers within this OU
 			$computers = @($TotalEnabledMachines | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
@@ -141,7 +124,8 @@ function ADQuery {
 			$collgroups = @($TotalGroups | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)"})
 			
 			# Filter orgunits within this OU
-			$orgunits = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(OU)" })
+			$collOUs = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" })
+			$orgunits = @($collOUs | ForEach-Object { $_.name + "(OU)" })
 			
 			# Filter foreign principals within this OU
     		$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
@@ -152,52 +136,40 @@ function ADQuery {
 			# Create a custom object for each OU with its members
 			$TempAllDomainOUs += [PSCustomObject]@{
 				"Collected OUs"    = $CollectOU.name
-				#Domain  = $domain
+				"Distinguished Name" = $CollectOU.distinguishedname
 				Members = $members
+			}
+			
+			if($collOUs){
+				foreach($collOU in $collOUs){
+					$TempAllCollDomainOUs += [PSCustomObject]@{
+						"Member OU"    = $collOU.name
+						"Distinguished Name" = $collOU.distinguishedname
+						"OU Membership" = $CollectOU.distinguishedName
+					}
+				}
 			}
 		}
 		
 		if($TempAllDomainOUs) {
 			$TempAllDomainOUs | Sort-Object "Collected OUs" | Format-Table -AutoSize -Wrap
 		}
+		
+		if($TempAllCollDomainOUs) {
+			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name" | Format-Table -AutoSize -Wrap
+		}
 	}
 	
 	elseif($OUs){
 		$TempAllDomainOUs = @()
 		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
-		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname)
-		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname)
-		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property distinguishedName,samaccountname)
-		$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
 		
 		foreach ($CollectOU in $AllCollectedOUs) {
-				
-			$ouDN = $CollectOU.distinguishedName
-			#$domain = $CollectOU.domain
-			
-			# Filter users within this OU
-			$users = ($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
-
-			# Filter computers within this OU
-			$computers = @($TotalEnabledMachines | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
-			
-			# Filter groups within this OU
-			$collgroups = @($TotalGroups | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)"})
-			
-			# Filter orgunits within this OU
-			$orgunits = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(OU)" })
-			
-			# Filter foreign principals within this OU
-    		$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
-
-			# Combine users and computers
-			$members = @($users + $computers + $collgroups + $orgunits + $collforeign) -join ' - '
 
 			# Create a custom object for each OU with its members
 			$TempAllDomainOUs += [PSCustomObject]@{
 				"OU Name"    = $CollectOU.name
-				#Domain  = $domain
-				Members = $members
+				"Distinguished Name" = $CollectOU.distinguishedname
 			}
 		}
 		
@@ -208,18 +180,83 @@ function ADQuery {
 	
 	elseif($OUName){
 		$TempAllDomainOUs = @()
+		$TempAllCollDomainOUs = @()
 		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
-		$SelectedOU = @($AllCollectedOUs | Where-Object {$_.name -eq $OUName} )
+		$SelectedOUs = @($AllCollectedOUs | Where-Object {$_.name -eq $OUName} )
 		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname)
 		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname)
 		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property distinguishedName,samaccountname)
-		$AllForeignSecurityPrincipals += @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
+		$AllForeignSecurityPrincipals = @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
+		
+		foreach($SelectedOU in $SelectedOUs){
+			
+			$members = $null
+			
+			$ouDN = $SelectedOU.distinguishedName
+			#$domain = $SelectedOU.domain
+			
+			# Filter users within this OU
+			$users = @($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+
+			# Filter computers within this OU
+			$computers = @($TotalEnabledMachines | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+			
+			# Filter groups within this OU
+			$collgroups = @($TotalGroups | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)"})
+			
+			# Filter orgunits within this OU
+			$collOUs = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" })
+			$orgunits = @($collOUs | ForEach-Object { $_.name + "(OU)" })
+			
+			# Filter foreign principals within this OU
+			$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
+
+			# Combine users and computers
+			$members = @($users + $computers + $collgroups + $orgunits + $collforeign) -join ' - '
+
+			# Create a custom object for each OU with its members
+			$TempAllDomainOUs += [PSCustomObject]@{
+				"OU Name"    = $SelectedOU.name
+				"Distinguished Name" = $SelectedOU.distinguishedname
+				#Domain  = $domain
+				Members = $members
+			}
+			
+			if($collOUs){
+				foreach($collOU in $collOUs){
+					$TempAllCollDomainOUs += [PSCustomObject]@{
+						"Member OU"    = $collOU.name
+						"Distinguished Name" = $collOU.distinguishedname
+						"OU Membership" = $SelectedOU.distinguishedName
+					}
+				}
+			}
+		}
+		
+		if($TempAllDomainOUs) {
+			$TempAllDomainOUs | Sort-Object "OU Name" | Format-Table -AutoSize -Wrap
+		}
+		
+		if($TempAllCollDomainOUs) {
+			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name" | Format-Table -AutoSize -Wrap
+		}
+	}
+	
+	elseif($OUDistName){
+		$TempAllDomainOUs = @()
+		$TempAllCollDomainOUs = @()
+		$AllCollectedOUs = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect OUs -Property gplink,name,distinguishedname)
+		$SelectedOU = @($AllCollectedOUs | Where-Object {$_.distinguishedname -eq $OUDistName} )
+		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname)
+		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname)
+		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property distinguishedName,samaccountname)
+		$AllForeignSecurityPrincipals = @(Collect-ADObjects -Domain $Domain -Server $Server -LDAP "(&(objectCategory=foreignSecurityPrincipal)(CN=S-1-5-21*))")
 		
 		$ouDN = $SelectedOU.distinguishedName
 		#$domain = $SelectedOU.domain
 		
 		# Filter users within this OU
-		$users = ($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
+		$users = @($TotalEnabledUsers | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
 
 		# Filter computers within this OU
 		$computers = @($TotalEnabledMachines | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname })
@@ -228,10 +265,11 @@ function ADQuery {
 		$collgroups = @($TotalGroups | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.samaccountname + "(Grp)"})
 		
 		# Filter orgunits within this OU
-		$orgunits = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(OU)" })
+		$collOUs = @($AllCollectedOUs | Where-Object { $_.distinguishedName -like "*,${ouDN}" })
+		$orgunits = @($collOUs | ForEach-Object { $_.name + "(OU)" })
 		
 		# Filter foreign principals within this OU
-    	$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
+		$collforeign = @($AllForeignSecurityPrincipals | Where-Object { $_.distinguishedName -like "*,${ouDN}" } | ForEach-Object { $_.name + "(Foreign)" })
 
 		# Combine users and computers
 		$members = @($users + $computers + $collgroups + $orgunits + $collforeign) -join ' - '
@@ -239,6 +277,7 @@ function ADQuery {
 		# Create a custom object for each OU with its members
 		$TempAllDomainOUs += [PSCustomObject]@{
 			"OU Name"    = $SelectedOU.name
+			"Distinguished Name" = $SelectedOU.distinguishedname
 			#Domain  = $domain
 			Members = $members
 		}
@@ -246,26 +285,28 @@ function ADQuery {
 		if($TempAllDomainOUs) {
 			$TempAllDomainOUs | Sort-Object "OU Name" | Format-Table -AutoSize -Wrap
 		}
+		
+		if($collOUs){
+			foreach($collOU in $collOUs){
+				$TempAllCollDomainOUs += [PSCustomObject]@{
+					"Member OU"    = $collOU.name
+					"Distinguished Name" = $collOU.distinguishedname
+					"OU Membership" = $SelectedOU.distinguishedName
+				}
+			}
+			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name" | Format-Table -AutoSize -Wrap
+		}
 	}
 	
 	elseif($Groups){
-		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property name,member,distinguishedName,samaccountname,memberof,objectClass,objectCategory)
-		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname,objectClass,objectCategory,name)
-		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname,objectClass,objectCategory,name)
-		$SumGroupsUsers = @($TotalGroups + $TotalEnabledUsers + $TotalEnabledMachines)
+		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Convert -Property samaccountname,objectsid,description)
 		$TempOtherGroups = @()
 		
 		foreach($OtherGroup in $TotalGroups){
-			$FinalGroupMembers = @()
-			$OtherGroupMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $Domain -Identity $OtherGroup.samaccountname)
-			
-			foreach ($OtherGroupMember in $OtherGroupMembers) {
-				$FinalGroupMembers += $OtherGroupMember.samaccountname
-			}
-			
 			$TempOtherGroups += [PSCustomObject]@{
 				"Group Name" = $OtherGroup.SamAccountName
-				"Members" = ($FinalGroupMembers | Sort-Object -Unique) -join ' - '
+				"SID" = $OtherGroup.objectsid
+				"Description" = $OtherGroup.description
 			}
 		}
 		
@@ -273,25 +314,54 @@ function ADQuery {
 	}
 	
 	elseif($GroupName){
-		$TotalGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Groups -Property name,member,distinguishedName,samaccountname,memberof,objectClass,objectCategory)
-		$TotalEnabledUsers = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Users -Enabled -Property distinguishedName,samaccountname,objectClass,objectCategory,name)
-		$TotalEnabledMachines = @(Collect-ADObjects -Domain $Domain -Server $Server -Collect Computers -Enabled -Property distinguishedName,samaccountname,objectClass,objectCategory,name)
-		$SumGroupsUsers = @($TotalGroups + $TotalEnabledUsers + $TotalEnabledMachines)
-		$TempOtherGroups = @()
+		function Get-NestedGroupMembers {
+			param (
+				[string]$GroupName,
+				[string]$Domain,
+				[string]$Server,
+				[ref]$AllMembers
+			)
+
+			$TargetGroup = @(Collect-ADObjects -Domain $Domain -Server $Server -Property name,member,distinguishedName,samaccountname,memberof,objectClass,objectCategory,objectsid -Convert -LDAP "(&(samaccountname=$GroupName)(objectCategory=group))")
+			if(!$TargetGroup) {
+				Write-Output "[-] Group not found"
+				Write-Output ""
+				return
+			}
+
+			$ExtractedRawMembers = @($TargetGroup | Select-Object -ExpandProperty member)
+			$ExtractedMembers = @()
+
+			foreach($ExtractedRawMember in $ExtractedRawMembers) {
+				$Member = ($ExtractedRawMember -split ",")[0] -replace "CN=",""
+				if (-not ($AllMembers.Value -contains $Member)) {
+					$AllMembers.Value += $Member
+				}
+				$ExtractedMembers += $Member
+			}
+
+			foreach($ExtractedMember in $ExtractedMembers) {
+				$NestedGroups = @(Collect-ADObjects -Domain $Domain -Server $Server -Property name,member,distinguishedName,samaccountname,memberof,objectClass,objectCategory,objectsid -Convert -LDAP "(&(samaccountname=$ExtractedMember)(objectCategory=group))")
+				foreach($nested in $NestedGroups) {
+					Get-NestedGroupMembers -GroupName $nested.samaccountname -Domain $Domain -Server $Server -AllMembers $AllMembers
+				}
+			}
+		}
+
+		# Initialise a collection to hold all members
+		$AllMembers = @()
+		$AllMembersRef = [ref]$AllMembers
+		Get-NestedGroupMembers -GroupName $GroupName -Domain $Domain -Server $Server -AllMembers $AllMembersRef
 		
-		$FinalGroupMembers = @()
-		$OtherGroupMembers = @(RecursiveGroupMembers -AllADObjects $SumGroupsUsers -Raw -Domain $Domain -Identity $GroupName)
-		
-		foreach ($OtherGroupMember in $OtherGroupMembers) {
-			$FinalGroupMembers += $OtherGroupMember.samaccountname
+		$TargetGroup = @(Collect-ADObjects -Domain $Domain -Server $Server -Property name,samaccountname,objectsid -Convert -LDAP "(&(samaccountname=$GroupName)(objectCategory=group))")
+
+		$Result = [PSCustomObject]@{
+			"Group Name" = $TargetGroup.samaccountname
+			"SID" = $TargetGroup.objectsid
+			"Members" = ($AllMembers | Sort-Object -Unique) -join ' - '
 		}
 		
-		$TempOtherGroups += [PSCustomObject]@{
-			"Group Name" = $GroupName
-			"Members" = ($FinalGroupMembers | Sort-Object -Unique) -join ' - '
-		}
-		
-		$TempOtherGroups | Where-Object {$_."Group Name"} | Sort-Object "Group Name" | Format-Table -AutoSize -Wrap
+		$Result | Format-Table -AutoSize -Wrap
 	}
 	
 	elseif($UserName){
@@ -874,106 +944,4 @@ function GetSID-FromBytes {
 	$sid = New-Object System.Security.Principal.SecurityIdentifier($sidBytes, 0)
 	$stringSid = $sid.Value
 	return $stringSid
-}
-
-function RecursiveGroupMembers {
-    param (
-        [Parameter(Mandatory = $true)]
-        [string]$Identity,
-		[Parameter(Mandatory = $false)]
-        [string]$Domain,
-		[Parameter(Mandatory = $false)]
-        [switch]$Raw,
-        [Parameter(Mandatory = $true)]
-        [array]$AllADObjects
-    )
-
-    if($Raw){
-		$processedGroups = @()
-		$memberList = New-Object System.Collections.Generic.List[object]
-
-		function Process-Group {
-			param ([string]$Identity)
-
-			# Prevent processing the same group more than once
-			if ($Identity -in $processedGroups) { return }
-			$processedGroups += $Identity
-
-			# Find the group object
-			$group = $AllADObjects | Where-Object { $_.name -eq $Identity -and ($_.objectClass -contains 'group' -or $_.objectCategory -like '*Group*') }
-
-			# Get direct members of the group
-			$members = $group.member
-
-			foreach ($member in $members) {
-				$memberObject = $AllADObjects | Where-Object { $_.distinguishedName -eq $member }
-
-				# Add the member to the list if not already present
-				if ($memberObject -and -not ($memberList.Contains($memberObject))) {
-					$memberList.Add($memberObject)
-					# If the member is also a group, process it recursively
-					if ($memberObject.objectClass -contains 'group' -or $memberObject.objectCategory -like '*Group*') {
-						Process-Group -Identity $memberObject.name
-					}
-				}
-			}
-		}
-
-		Process-Group -Identity $Identity
-
-		return $memberList
-	}
-	
-	else{
-		$processedGroups = New-Object System.Collections.Generic.HashSet[string]
-		$memberList = New-Object System.Collections.Generic.List[object]
-
-		function Process-Group {
-			param ([string]$Identity)
-
-			# Prevent processing the same group more than once
-			if (-not $processedGroups.Add($Identity)) { return }
-
-			# Find the group object
-			$group = $AllADObjects | Where-Object { $_.name -eq $Identity -and ($_.objectClass -contains 'group' -or $_.objectCategory -like '*Group*') }
-
-			if ($group) {
-				# Get direct members of the group
-				$members = $group.member
-
-				foreach ($member in $members) {
-					$memberObject = $AllADObjects | Where-Object { $_.distinguishedName -eq $member }
-
-					if ($memberObject) {
-						# Extract the most specific object class
-						$mostSpecificObjectClass = @($memberObject.objectClass)[-1]
-						
-						# Create a custom PSObject with the desired properties
-						$memberDetails = [PSCustomObject]@{
-							GroupDomain             = $group.domain
-							GroupName               = $group.name
-							GroupDistinguishedName  = $group.distinguishedName
-							MemberDomain            = $memberObject.domain
-							MemberName              = $memberObject.samaccountname
-							MemberDistinguishedName = $memberObject.distinguishedName
-							MemberObjectClass       = $mostSpecificObjectClass
-							MemberSID               = GetSID-FromBytes -sidBytes $memberObject.objectsid
-						}
-
-						$memberList.Add($memberDetails)
-
-						# If the member is also a group, process it recursively
-						if ($memberObject.objectClass -contains 'group' -or $memberObject.objectCategory -like '*Group*') {
-							Process-Group -Identity $memberObject.name
-						}
-					}
-				}
-			}
-		}
-
-		Process-Group -Identity $Identity
-
-		return $memberList
-	}
-	
 }
