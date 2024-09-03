@@ -396,6 +396,7 @@ function ADQuery {
 			"Object SID" = $ExtractUser.objectsid
 			"Object GUID" = $ExtractUser.objectguid
 			"Mail" = $ExtractUser.mail
+   			"Description" = $ExtractUser.description
 		}
 		
 		$MoreInfoTable = [PSCustomObject]@{
@@ -523,6 +524,7 @@ function ADQuery {
 			"Object SID" = $ExtractUser.objectsid
 			"Object GUID" = $ExtractUser.objectguid
 			#"Mail" = $ExtractUser.mail
+   			"Description" = $ExtractUser.description
 		}
 		
 		$MoreInfoTable = [PSCustomObject]@{
