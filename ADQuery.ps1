@@ -77,7 +77,7 @@ function ADQuery {
 		}
 		
 		if($TempAllDomainOUs) {
-			$TempAllDomainOUs | Sort-Object -Unique "Collected OUs","Distinguished Name" | Format-Table -AutoSize -Wrap
+			$TempAllDomainOUs | Sort-Object -Unique "Collected OUs","Distinguished Name","GPO Membership" | Format-Table -AutoSize -Wrap
 		}
 	}
 	
@@ -156,7 +156,7 @@ function ADQuery {
 		}
 		
 		if($TempAllCollDomainOUs) {
-			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name" | Format-Table -AutoSize -Wrap
+			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name","OU Membership" | Format-Table -AutoSize -Wrap
 		}
 	}
 	
@@ -239,7 +239,7 @@ function ADQuery {
 		}
 		
 		if($TempAllCollDomainOUs) {
-			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name" | Format-Table -AutoSize -Wrap
+			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name","OU Membership" | Format-Table -AutoSize -Wrap
 		}
 	}
 	
@@ -295,7 +295,7 @@ function ADQuery {
 					"OU Membership" = $SelectedOU.distinguishedName
 				}
 			}
-			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name" | Format-Table -AutoSize -Wrap
+			$TempAllCollDomainOUs | Sort-Object -Unique "OU Name","Distinguished Name","OU Membership" | Format-Table -AutoSize -Wrap
 		}
 	}
 	
