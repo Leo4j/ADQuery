@@ -327,7 +327,7 @@ function ADQuery {
 			if(!$TargetGroup) {
 				Write-Output "[-] Group not found"
 				Write-Output ""
-				return
+				break
 			}
 
 			$ExtractedRawMembers = @($TargetGroup | Select-Object -ExpandProperty member)
